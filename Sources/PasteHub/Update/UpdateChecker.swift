@@ -132,14 +132,17 @@ final class UpdateChecker {
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, http.statusCode == 404 {
-            return GitHubRelease(tagName: currentVersion, htmlURL: githubReleasesURL.absoluteString, body: nil, assets: [])
+            return GitHubRelease(
+                tagName: currentVersion,
+                htmlURL: githubReleasesURL.absoluteString,
+                body: nil,
+                assets: []
+            )
         }
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
             throw UpdateError.http(http.statusCode)
         }
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode(GitHubRelease.self, from: data)
+        return try GitHubRelease.decode(from: data)
     }
 
     private func downloadApp(from url: URL) async throws -> URL {
@@ -185,18 +188,6 @@ final class UpdateChecker {
         guard process.terminationStatus == 0 else {
             throw UpdateError.unpackFailed
         }
-    }
-}
-
-private struct GitHubRelease: Decodable {
-    let tagName: String
-    let htmlURL: String
-    let body: String?
-    let assets: [Asset]
-
-    struct Asset: Decodable {
-        let name: String
-        let browserDownloadURL: String
     }
 }
 
