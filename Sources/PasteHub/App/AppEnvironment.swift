@@ -30,6 +30,7 @@ final class AppEnvironment {
     let watcher: ClipboardWatcher
     let pasteEngine: PasteEngine
     let overlay: OverlayController
+    let updater = UpdateChecker()
 
     private init() {
         do {
@@ -47,16 +48,7 @@ final class AppEnvironment {
         PasteHubHotKey.migrateLegacyShortcutIfNeeded()
         watcher.start()
         overlay.registerHotKey()
-        let ax = AccessibilityAuthorizer.isTrusted
-        let line = "ax=\(ax) pid=\(ProcessInfo.processInfo.processIdentifier) path=\(Bundle.main.bundlePath)\n"
-        try? line.write(toFile: "/tmp/pastehub-ax.txt", atomically: true, encoding: .utf8)
-        NSLog("PasteHub: \(line)")
-        if !ax {
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(600))
-                AccessibilityAuthorizer.requestOnLaunch()
-            }
-        }
+        updater.startAutomaticChecks()
     }
 
     func prepareToQuit() {
@@ -71,7 +63,11 @@ final class AppEnvironment {
     }
 
     func openSettings() {
-        NSApp.activate()
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        SettingsWindowController.shared.show()
+    }
+
+    func checkForUpdates() {
+        SettingsWindowController.shared.show()
+        Task { await updater.checkForUpdates(userInitiated: true) }
     }
 }

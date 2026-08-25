@@ -41,7 +41,7 @@ final class PasteEngine {
             await restoreFocus(to: target)
             try? await Task.sleep(for: .milliseconds(120))
 
-            if let text, insertViaAccessibility(text) {
+            if item.kind != .image, let text, insertViaAccessibility(text) {
                 try? store.markUsed(id: item.id)
                 return
             }

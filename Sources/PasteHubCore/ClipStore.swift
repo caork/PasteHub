@@ -102,6 +102,22 @@ public final class ClipStore: Sendable {
         return nil
     }
 
+    public func thumbnails(for ids: [UUID]) throws -> [UUID: Data] {
+        guard !ids.isEmpty else { return [:] }
+        return try db.read { db in
+            let rows = try DBClipRepresentation
+                .filter(Column("uti") == UTI.thumbnailPNG)
+                .filter(ids.contains(Column("itemId")))
+                .fetchAll(db)
+            var result: [UUID: Data] = [:]
+            result.reserveCapacity(rows.count)
+            for row in rows {
+                result[row.itemId] = row.data
+            }
+            return result
+        }
+    }
+
     public func setPinned(id: UUID, pinned: Bool) throws {
         try db.write { db in
             _ = try DBClipItem
@@ -155,6 +171,18 @@ public final class ClipStore: Sendable {
         let overflow = unpinned.count - limit
         guard overflow > 0 else { return }
         for record in unpinned.prefix(overflow) {
+            try record.delete(db)
+        }
+
+        var totalBytes = try Int.fetchOne(db, sql: "SELECT COALESCE(SUM(byteSize), 0) FROM clipItem") ?? 0
+        guard totalBytes > PasteHubDefaults.maxStoreBytes else { return }
+        let oldest = try DBClipItem
+            .filter(Column("pinned") == false)
+            .order(Column("lastUsedAt").asc)
+            .fetchAll(db)
+        for record in oldest {
+            guard totalBytes > PasteHubDefaults.maxStoreBytes else { break }
+            totalBytes -= record.byteSize
             try record.delete(db)
         }
     }

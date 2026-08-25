@@ -33,6 +33,14 @@ final class StatusItemController: NSObject {
         )
         settingsItem.target = self
         menu.addItem(settingsItem)
+
+        let updateItem = NSMenuItem(
+            title: "检查更新…",
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        menu.addItem(updateItem)
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(
@@ -51,6 +59,10 @@ final class StatusItemController: NSObject {
 
     @objc private func openSettings() {
         AppEnvironment.shared.openSettings()
+    }
+
+    @objc private func checkForUpdates() {
+        AppEnvironment.shared.checkForUpdates()
     }
 
     @objc private func quit() {

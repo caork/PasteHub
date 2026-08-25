@@ -7,7 +7,9 @@ import PasteHubCore
 final class OverlayViewModel {
     var query = ""
     var items: [ClipItem] = []
+    var thumbnails: [UUID: Data] = [:]
     var selectedID: UUID?
+    var keyboardScrollID: UUID?
     var accessibilityTrusted = AccessibilityAuthorizer.isTrusted
     var onContentChange: (() -> Void)?
 
@@ -41,8 +43,11 @@ final class OverlayViewModel {
     func reload() {
         do {
             items = try store.items(matching: query)
+            let imageIDs = items.filter { $0.kind == .image }.map(\.id)
+            thumbnails = try store.thumbnails(for: imageIDs)
         } catch {
             items = []
+            thumbnails = [:]
             NSLog("PasteHub: search failed: \(error)")
         }
         if let selectedID, items.contains(where: { $0.id == selectedID }) {
@@ -57,6 +62,7 @@ final class OverlayViewModel {
         guard !items.isEmpty else { return }
         let next = min(max(selectedIndex + delta, 0), items.count - 1)
         selectedID = items[next].id
+        keyboardScrollID = selectedID
     }
 
     func selectedItem() -> ClipItem? {

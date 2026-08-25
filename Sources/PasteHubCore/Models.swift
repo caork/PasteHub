@@ -111,6 +111,10 @@ public enum UTI {
     public static let utf8PlainText = "public.utf8-plain-text"
     public static let rtf = "public.rtf"
     public static let html = "public.html"
+    public static let png = "public.png"
+    public static let tiff = "public.tiff"
+    public static let jpeg = "public.jpeg"
+    public static let thumbnailPNG = "com.kaitaocao.PasteHub.thumbnail-png"
 }
 
 public extension Notification.Name {

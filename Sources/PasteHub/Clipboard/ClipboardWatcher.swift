@@ -56,7 +56,8 @@ final class ClipboardWatcher: NSObject {
         let context = PrivacyFilter.Context(
             text: String(data: draft.representations.first(where: { $0.uti == UTI.utf8PlainText })?.data ?? Data(), encoding: .utf8) ?? draft.preview,
             sourceBundleID: draft.sourceBundleID,
-            skipOneTimeCodes: PasteHubDefaults.skipOneTimeCodes
+            skipOneTimeCodes: PasteHubDefaults.skipOneTimeCodes,
+            kind: draft.kind
         )
         guard PrivacyFilter.shouldCapture(context) else { return }
 

@@ -1,7 +1,7 @@
 CONFIG ?= debug
 export DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer
 
-.PHONY: test build run clean
+.PHONY: test build run clean release
 
 test:
 	swift test
@@ -15,3 +15,6 @@ run: build
 clean:
 	swift package clean
 	rm -rf dist .build
+
+release:
+	zsh Scripts/release.sh

@@ -5,11 +5,13 @@ public enum PrivacyFilter {
         public var text: String
         public var sourceBundleID: String?
         public var skipOneTimeCodes: Bool
+        public var kind: ClipKind
 
-        public init(text: String, sourceBundleID: String?, skipOneTimeCodes: Bool) {
+        public init(text: String, sourceBundleID: String?, skipOneTimeCodes: Bool, kind: ClipKind = .text) {
             self.text = text
             self.sourceBundleID = sourceBundleID
             self.skipOneTimeCodes = skipOneTimeCodes
+            self.kind = kind
         }
     }
 
@@ -38,12 +40,15 @@ public enum PrivacyFilter {
     ]
 
     public static func shouldCapture(_ context: Context) -> Bool {
-        let trimmed = context.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        if context.text.utf8.count > PasteHubDefaults.maxTextBytes { return false }
         if let bundleID = context.sourceBundleID, blockedBundleIDs.contains(bundleID) {
             return false
         }
+        if context.kind == .image {
+            return true
+        }
+        let trimmed = context.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        if context.text.utf8.count > PasteHubDefaults.maxTextBytes { return false }
         if context.skipOneTimeCodes, looksLikeOneTimeCode(trimmed) {
             return false
         }

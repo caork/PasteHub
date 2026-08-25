@@ -9,6 +9,7 @@ struct PasteHubApp: App {
     var body: some Scene {
         Settings {
             SettingsView()
+                .frame(minWidth: 520, minHeight: 600)
         }
     }
 }

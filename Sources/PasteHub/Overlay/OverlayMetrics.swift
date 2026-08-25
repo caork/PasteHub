@@ -11,6 +11,7 @@ enum OverlayMetrics {
     static let maxVisibleRows = 7
     static let minHeight: CGFloat = 108
     static let iconSize: CGFloat = 16
+    static let thumbnailSize: CGFloat = 22
 
     static func height(itemCount: Int, showAxBanner: Bool) -> CGFloat {
         let rows = itemCount == 0 ? 3 : min(max(itemCount, 1), maxVisibleRows)

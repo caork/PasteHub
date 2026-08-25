@@ -55,6 +55,26 @@ struct PrivacyFilterTests {
         #expect(PrivacyFilter.shouldCapture(context))
     }
 
+    @Test func allowsImagesFromOrdinaryApps() {
+        let context = PrivacyFilter.Context(
+            text: "",
+            sourceBundleID: "com.apple.Safari",
+            skipOneTimeCodes: true,
+            kind: .image
+        )
+        #expect(PrivacyFilter.shouldCapture(context))
+    }
+
+    @Test func blocksImagesFromPasswordManagers() {
+        let context = PrivacyFilter.Context(
+            text: "",
+            sourceBundleID: "com.1password.1password",
+            skipOneTimeCodes: true,
+            kind: .image
+        )
+        #expect(!PrivacyFilter.shouldCapture(context))
+    }
+
     @Test func rejectsEmptyAndHugeText() {
         let empty = PrivacyFilter.Context(text: "   ", sourceBundleID: nil, skipOneTimeCodes: true)
         #expect(!PrivacyFilter.shouldCapture(empty))

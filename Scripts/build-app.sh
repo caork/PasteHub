@@ -23,8 +23,10 @@ else
   codesign --force --sign - --entitlements AppSupport/PasteHub.entitlements "$APP" >/dev/null
 fi
 
-INSTALL="${INSTALL_APP:-/Applications/PasteHub.app}"
-rm -rf "$INSTALL"
-cp -R "$APP" "$INSTALL"
-echo "Installed $INSTALL"
+if [[ "${SKIP_INSTALL:-}" != "1" ]]; then
+  INSTALL="${INSTALL_APP:-/Applications/PasteHub.app}"
+  rm -rf "$INSTALL"
+  cp -R "$APP" "$INSTALL"
+  echo "Installed $INSTALL"
+fi
 echo "Built $APP"

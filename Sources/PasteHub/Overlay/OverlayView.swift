@@ -74,7 +74,7 @@ struct OverlayView: View {
     @ViewBuilder
     private var content: some View {
         if model.items.isEmpty {
-            Text(model.query.isEmpty ? "复制文本后会出现在这里" : "没有匹配项")
+            Text(model.query.isEmpty ? "复制文本或图片后会出现在这里" : "没有匹配项")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, minHeight: listHeight, maxHeight: listHeight)
@@ -89,7 +89,8 @@ struct OverlayView: View {
                                 ClipRowView(
                                     item: item,
                                     index: index,
-                                    isSelected: item.id == model.selectedID
+                                    isSelected: item.id == model.selectedID,
+                                    thumbnail: model.thumbnails[item.id]
                                 )
                             }
                             .buttonStyle(.plain)
@@ -99,7 +100,9 @@ struct OverlayView: View {
                             }
                             .contextMenu {
                                 Button("粘贴") { onPaste(item, false) }
-                                Button("粘贴为纯文本") { onPaste(item, true) }
+                                if item.kind != .image {
+                                    Button("粘贴为纯文本") { onPaste(item, true) }
+                                }
                                 Button(item.pinned ? "取消固定" : "固定") {
                                     model.selectedID = item.id
                                     model.togglePinSelected()
@@ -114,10 +117,11 @@ struct OverlayView: View {
                     }
                 }
                 .scrollIndicators(.never)
+                .scrollBounceBehavior(.basedOnSize)
                 .frame(height: listHeight)
-                .onChange(of: model.selectedID) { _, newValue in
+                .onChange(of: model.keyboardScrollID) { _, newValue in
                     if let newValue {
-                        proxy.scrollTo(newValue, anchor: .center)
+                        proxy.scrollTo(newValue)
                     }
                 }
             }
@@ -151,14 +155,12 @@ private struct ClipRowView: View {
     let item: ClipItem
     let index: Int
     let isSelected: Bool
+    let thumbnail: Data?
 
     var body: some View {
         HStack(spacing: 8) {
             ZStack(alignment: .topTrailing) {
-                Image(nsImage: AppIconCache.icon(for: item.sourceBundleID))
-                    .resizable()
-                    .frame(width: OverlayMetrics.iconSize, height: OverlayMetrics.iconSize)
-                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                leadingIcon
                 if item.pinned {
                     Image(systemName: "pin.fill")
                         .font(.system(size: 6))
@@ -166,12 +168,14 @@ private struct ClipRowView: View {
                         .offset(x: 3, y: -3)
                 }
             }
-            .frame(width: OverlayMetrics.iconSize, height: OverlayMetrics.iconSize)
+            .frame(width: leadingSize, height: leadingSize)
 
             Text(item.preview.isEmpty ? "(empty)" : item.preview)
-                .font(ClipFactory.looksLikeCode(item.preview)
-                    ? .system(size: 12, design: .monospaced)
-                    : .system(size: 12))
+                .font(item.kind == .image
+                    ? .system(size: 12)
+                    : (ClipFactory.looksLikeCode(item.preview)
+                        ? .system(size: 12, design: .monospaced)
+                        : .system(size: 12)))
                 .lineLimit(1)
                 .truncationMode(.tail)
 
@@ -192,6 +196,31 @@ private struct ClipRowView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isSelected ? Color.primary.opacity(0.10) : Color.clear)
         )
+    }
+
+    private var leadingSize: CGFloat {
+        item.kind == .image ? OverlayMetrics.thumbnailSize : OverlayMetrics.iconSize
+    }
+
+    @ViewBuilder
+    private var leadingIcon: some View {
+        if item.kind == .image, let thumbnail, let image = NSImage(data: thumbnail) {
+            Image(nsImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: OverlayMetrics.thumbnailSize, height: OverlayMetrics.thumbnailSize)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        } else if item.kind == .image {
+            Image(systemName: "photo")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: OverlayMetrics.thumbnailSize, height: OverlayMetrics.thumbnailSize)
+        } else {
+            Image(nsImage: AppIconCache.icon(for: item.sourceBundleID))
+                .resizable()
+                .frame(width: OverlayMetrics.iconSize, height: OverlayMetrics.iconSize)
+                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+        }
     }
 }
 

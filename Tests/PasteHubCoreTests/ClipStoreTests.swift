@@ -84,4 +84,20 @@ struct ClipStoreTests {
         let remaining = try store.items(matching: "")
         #expect(remaining.map(\.preview) == ["keep"])
     }
+
+    @Test func imageThumbnailsLoadWithoutPullingFullPng() throws {
+        let store = try ClipStore.inMemory()
+        let png = Data(repeating: 7, count: 64)
+        let thumb = Data(repeating: 9, count: 12)
+        let draft = try #require(ClipFactory.makeImage(png: png, thumbnail: thumb, width: 10, height: 8))
+        guard case let .inserted(item) = try store.ingest(draft) else {
+            Issue.record("expected insert")
+            return
+        }
+        let thumbs = try store.thumbnails(for: [item.id])
+        #expect(thumbs[item.id] == thumb)
+        let reps = try store.representations(for: item.id)
+        #expect(reps.contains { $0.uti == UTI.png && $0.data == png })
+        #expect(try store.items(matching: "图片").count == 1)
+    }
 }

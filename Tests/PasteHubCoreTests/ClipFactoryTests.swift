@@ -38,4 +38,34 @@ struct ClipFactoryTests {
     @Test func rejectsWhitespaceOnly() {
         #expect(ClipFactory.make(text: " \n ") == nil)
     }
+
+    @Test func capturesScreenshotsAndImageURLsAsImages() {
+        #expect(ClipFactory.shouldCaptureAsImage(text: nil, hasBitmap: true))
+        #expect(ClipFactory.shouldCaptureAsImage(text: "https://example.com/a.png", hasBitmap: true))
+        #expect(ClipFactory.shouldCaptureAsImage(text: "Screenshot 2026-08-25.png", hasBitmap: true))
+        #expect(!ClipFactory.shouldCaptureAsImage(text: "a long paragraph\nwith two lines of real text", hasBitmap: true))
+        #expect(!ClipFactory.shouldCaptureAsImage(text: "hello", hasBitmap: false))
+    }
+
+    @Test func makeImageStoresPngAndThumbnail() throws {
+        let png = Data(repeating: 1, count: 32)
+        let thumb = Data(repeating: 2, count: 8)
+        let clip = try #require(ClipFactory.makeImage(
+            png: png,
+            thumbnail: thumb,
+            width: 1280,
+            height: 720,
+            sourceAppName: "Safari"
+        ))
+        #expect(clip.kind == .image)
+        #expect(clip.preview == "图片 1280×720")
+        #expect(clip.contentHash == ContentHasher.sha256(of: png))
+        #expect(clip.representations.contains { $0.uti == UTI.png && $0.data == png })
+        #expect(clip.representations.contains { $0.uti == UTI.thumbnailPNG && $0.data == thumb })
+    }
+
+    @Test func rejectsHugeImages() {
+        let huge = Data(repeating: 1, count: PasteHubDefaults.maxImageBytes + 1)
+        #expect(ClipFactory.makeImage(png: huge, thumbnail: Data([1]), width: 10, height: 10) == nil)
+    }
 }
