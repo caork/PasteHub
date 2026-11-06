@@ -14,6 +14,9 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/PasteHub"
 cp AppSupport/Info.plist "$APP/Contents/Info.plist"
 cp AppSupport/Assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+for RESOURCE in "$(dirname "$BIN")"/*.bundle(N); do
+  cp -R "$RESOURCE" "$APP/Contents/Resources/"
+done
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
 
 IDENTITY="${CODESIGN_IDENTITY:-Apple Development: caorunkai@qq.com (3S8J4T3HQ7)}"
