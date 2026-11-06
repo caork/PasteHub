@@ -27,10 +27,6 @@ final class PasteEngine {
         }
         guard !representations.isEmpty else { return }
 
-        let text = representations
-            .first(where: { $0.uti == UTI.utf8PlainText })
-            .flatMap { String(data: $0.data, encoding: .utf8) }
-
         watcher.performSelfWrite {
             PasteboardCodec.write(representations, to: .general, plainText: plainText)
         }
@@ -41,11 +37,9 @@ final class PasteEngine {
             await restoreFocus(to: target)
             try? await Task.sleep(for: .milliseconds(120))
 
-            if item.kind != .image, let text, insertViaAccessibility(text) {
-                try? store.markUsed(id: item.id)
-                return
-            }
-
+            // Use the target application's paste command for every content type.
+            // AXSelectedText may report success without committing an edit, and
+            // writing it directly also bypasses rich-text handling and undo.
             sendCommandV()
             if !AccessibilityAuthorizer.isTrusted {
                 pasteViaSystemEvents()
@@ -61,25 +55,6 @@ final class PasteEngine {
 
         NSApp.yieldActivation(to: target)
         _ = target.activate(from: .current, options: [.activateAllWindows])
-    }
-
-    /// Insert at the caret of the focused AX element. Works in many AppKit fields; Electron usually fails.
-    private func insertViaAccessibility(_ text: String) -> Bool {
-        let system = AXUIElementCreateSystemWide()
-        var focused: CFTypeRef?
-        let copyError = AXUIElementCopyAttributeValue(
-            system,
-            "AXFocusedUIElement" as CFString,
-            &focused
-        )
-        guard copyError == .success, let focused else { return false }
-        let element = focused as! AXUIElement
-        let setError = AXUIElementSetAttributeValue(
-            element,
-            "AXSelectedText" as CFString,
-            text as CFString
-        )
-        return setError == .success
     }
 
     private func sendCommandV() {
