@@ -13,7 +13,13 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/PasteHub"
 cp AppSupport/Info.plist "$APP/Contents/Info.plist"
-cp AppSupport/Assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+xcrun actool AppSupport/Assets/AppIcon.icon \
+  --compile "$APP/Contents/Resources" \
+  --platform macosx \
+  --minimum-deployment-target "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' AppSupport/Info.plist)" \
+  --app-icon AppIcon \
+  --output-partial-info-plist dist/AppIcon-info.plist \
+  --output-format human-readable-text
 for RESOURCE in "$(dirname "$BIN")"/*.bundle(N); do
   cp -R "$RESOURCE" "$APP/Contents/Resources/"
 done
