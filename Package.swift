@@ -6,6 +6,7 @@ let package = Package(
     name: "PasteHub",
     platforms: [
         .macOS(.v14),
+        .iOS(.v17),
     ],
     products: [
         .library(name: "PasteHubCore", targets: ["PasteHubCore"]),

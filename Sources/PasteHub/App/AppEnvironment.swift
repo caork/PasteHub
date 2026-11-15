@@ -31,6 +31,7 @@ final class AppEnvironment {
     let pasteEngine: PasteEngine
     let overlay: OverlayController
     let updater = UpdateChecker()
+    let sync: SyncController
 
     private init() {
         do {
@@ -42,6 +43,7 @@ final class AppEnvironment {
         pasteEngine = PasteEngine(store: store, watcher: watcher)
         overlay = OverlayController(store: store, pasteEngine: pasteEngine)
         pasteEngine.overlay = overlay
+        sync = SyncController(store: store, watcher: watcher)
     }
 
     func start() {
@@ -49,6 +51,7 @@ final class AppEnvironment {
         watcher.start()
         overlay.registerHotKey()
         updater.startAutomaticChecks()
+        sync.start()
     }
 
     func prepareToQuit() {

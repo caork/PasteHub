@@ -1,3 +1,4 @@
+#if canImport(AppKit)
 import AppKit
 import Foundation
 import Testing
@@ -24,3 +25,4 @@ struct PasteboardCodecTests {
         #expect(PasteboardCodec.capture(board, sourceBundleID: nil, sourceAppName: nil) == nil)
     }
 }
+#endif

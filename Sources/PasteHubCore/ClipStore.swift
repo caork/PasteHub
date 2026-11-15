@@ -2,33 +2,46 @@ import Foundation
 import GRDB
 
 public final class ClipStore: Sendable {
-    private let db: DatabaseQueue
+    let db: any DatabaseWriter
 
-    public init(databaseQueue: DatabaseQueue) throws {
-        self.db = databaseQueue
-        try migrator.migrate(db)
+    public init(database: any DatabaseWriter) throws {
+        self.db = database
+        try Self.migrator.migrate(database)
+    }
+
+    public convenience init(databaseQueue: DatabaseQueue) throws {
+        try self.init(database: databaseQueue)
     }
 
     public static func openDefault() throws -> ClipStore {
         let root = try applicationSupportDirectory()
-        let url = root.appendingPathComponent("pastehub.sqlite")
+        return try open(at: root.appendingPathComponent("pastehub.sqlite"), sharedAcrossProcesses: false)
+    }
+
+    /// Opens a store at `url`. Use `sharedAcrossProcesses` when an app and its
+    /// extensions use the same file (iOS App Group): it switches to a WAL
+    /// `DatabasePool`, which tolerates concurrent readers in other processes.
+    public static func open(at url: URL, sharedAcrossProcesses: Bool) throws -> ClipStore {
         var config = Configuration()
         config.foreignKeysEnabled = true
-        config.prepareDatabase { db in
-            try db.execute(sql: "PRAGMA journal_mode = WAL")
+        config.busyMode = .timeout(5)
+        let database: any DatabaseWriter
+        if sharedAcrossProcesses {
+            database = try DatabasePool(path: url.path, configuration: config)
+        } else {
+            config.prepareDatabase { db in
+                try db.execute(sql: "PRAGMA journal_mode = WAL")
+            }
+            database = try DatabaseQueue(path: url.path, configuration: config)
         }
-        let queue = try DatabaseQueue(path: url.path, configuration: config)
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o600],
-            ofItemAtPath: url.path
-        )
-        return try ClipStore(databaseQueue: queue)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        return try ClipStore(database: database)
     }
 
     public static func inMemory() throws -> ClipStore {
         var config = Configuration()
         config.foreignKeysEnabled = true
-        return try ClipStore(databaseQueue: DatabaseQueue(configuration: config))
+        return try ClipStore(database: DatabaseQueue(configuration: config))
     }
 
     public func ingest(_ draft: NewClip, historyLimit: Int = PasteHubDefaults.historyLimit) throws -> IngestResult {
@@ -41,6 +54,7 @@ public final class ClipStore: Sendable {
                 existing.sourceBundleID = draft.sourceBundleID ?? existing.sourceBundleID
                 existing.sourceAppName = draft.sourceAppName ?? existing.sourceAppName
                 try existing.update(db)
+                try Self.enqueue(db, .upsert, contentHash: existing.contentHash)
                 return .updated(existing.asClipItem())
             }
 
@@ -55,17 +69,13 @@ public final class ClipStore: Sendable {
                 contentHash: draft.contentHash,
                 sourceBundleID: draft.sourceBundleID,
                 sourceAppName: draft.sourceAppName,
-                byteSize: draft.byteSize
+                byteSize: draft.byteSize,
+                originDeviceName: nil,
+                syncState: ClipSyncState.local.rawValue
             )
             try record.insert(db)
-            for representation in draft.representations {
-                try DBClipRepresentation(
-                    id: nil,
-                    itemId: draft.id,
-                    uti: representation.uti,
-                    data: representation.data
-                ).insert(db)
-            }
+            try Self.insertRepresentations(db, itemID: draft.id, draft.representations)
+            try Self.enqueue(db, .upsert, contentHash: draft.contentHash)
             try evictIfNeeded(db, limit: historyLimit)
             return .inserted(record.asClipItem())
         }
@@ -82,6 +92,12 @@ public final class ClipStore: Sendable {
                 request = request.filter(Column("preview").like("%\(escaped)%", escape: "\\"))
             }
             return try request.limit(limit).fetchAll(db).map { $0.asClipItem() }
+        }
+    }
+
+    public func item(withContentHash contentHash: String) throws -> ClipItem? {
+        try db.read { db in
+            try DBClipItem.filter(Column("contentHash") == contentHash).fetchOne(db)?.asClipItem()
         }
     }
 
@@ -120,20 +136,24 @@ public final class ClipStore: Sendable {
 
     public func setPinned(id: UUID, pinned: Bool) throws {
         try db.write { db in
-            _ = try DBClipItem
-                .filter(Column("id") == id)
-                .updateAll(db, Column("pinned").set(to: pinned))
+            guard var record = try DBClipItem.fetchOne(db, key: id) else { return }
+            record.pinned = pinned
+            try record.update(db)
+            try Self.enqueue(db, .pin, contentHash: record.contentHash)
         }
         notify()
     }
 
     public func delete(id: UUID) throws {
         try db.write { db in
-            _ = try DBClipItem.filter(Column("id") == id).deleteAll(db)
+            guard let record = try DBClipItem.fetchOne(db, key: id) else { return }
+            try record.delete(db)
+            try Self.enqueue(db, .delete, contentHash: record.contentHash)
         }
         notify()
     }
 
+    /// Clears unpinned history on this device only; other devices keep theirs.
     public func deleteUnpinned() throws {
         try db.write { db in
             _ = try DBClipItem.filter(Column("pinned") == false).deleteAll(db)
@@ -141,6 +161,7 @@ public final class ClipStore: Sendable {
         notify()
     }
 
+    /// Clears all history on this device only; other devices keep theirs.
     public func deleteAll() throws {
         try db.write { db in
             _ = try DBClipItem.deleteAll(db)
@@ -163,15 +184,16 @@ public final class ClipStore: Sendable {
         }
     }
 
-    private func evictIfNeeded(_ db: Database, limit: Int) throws {
+    func evictIfNeeded(_ db: Database, limit: Int) throws {
         let unpinned = try DBClipItem
             .filter(Column("pinned") == false)
             .order(Column("lastUsedAt").asc)
             .fetchAll(db)
         let overflow = unpinned.count - limit
-        guard overflow > 0 else { return }
-        for record in unpinned.prefix(overflow) {
-            try record.delete(db)
+        if overflow > 0 {
+            for record in unpinned.prefix(overflow) {
+                try record.delete(db)
+            }
         }
 
         var totalBytes = try Int.fetchOne(db, sql: "SELECT COALESCE(SUM(byteSize), 0) FROM clipItem") ?? 0
@@ -187,7 +209,18 @@ public final class ClipStore: Sendable {
         }
     }
 
-    private func notify() {
+    static func insertRepresentations(_ db: Database, itemID: UUID, _ representations: [NewRepresentation]) throws {
+        for representation in representations {
+            try DBClipRepresentation(
+                id: nil,
+                itemId: itemID,
+                uti: representation.uti,
+                data: representation.data
+            ).insert(db)
+        }
+    }
+
+    func notify() {
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: .pasteHubStoreDidChange, object: nil)
         }
@@ -212,7 +245,7 @@ public final class ClipStore: Sendable {
         return directory
     }
 
-    private var migrator: DatabaseMigrator {
+    private static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1") { db in
             try db.create(table: "clipItem") { t in
@@ -237,11 +270,27 @@ public final class ClipStore: Sendable {
                 t.foreignKey(["itemId"], references: "clipItem", columns: ["id"], onDelete: .cascade)
             }
         }
+        migrator.registerMigration("v2-sync") { db in
+            try db.alter(table: "clipItem") { t in
+                t.add(column: "originDeviceName", .text)
+                t.add(column: "syncState", .text).notNull().defaults(to: ClipSyncState.local.rawValue)
+            }
+            try db.create(table: "syncOutbox") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("type", .text).notNull()
+                t.column("contentHash", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+            }
+            try db.create(table: "syncMeta") { t in
+                t.primaryKey("key", .text)
+                t.column("value", .text).notNull()
+            }
+        }
         return migrator
     }
 }
 
-private struct DBClipItem: Codable, FetchableRecord, PersistableRecord {
+struct DBClipItem: Codable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "clipItem"
 
     var id: UUID
@@ -254,6 +303,8 @@ private struct DBClipItem: Codable, FetchableRecord, PersistableRecord {
     var sourceBundleID: String?
     var sourceAppName: String?
     var byteSize: Int
+    var originDeviceName: String?
+    var syncState: String
 
     func asClipItem() -> ClipItem {
         ClipItem(
@@ -266,12 +317,14 @@ private struct DBClipItem: Codable, FetchableRecord, PersistableRecord {
             contentHash: contentHash,
             sourceBundleID: sourceBundleID,
             sourceAppName: sourceAppName,
-            byteSize: byteSize
+            byteSize: byteSize,
+            originDeviceName: originDeviceName,
+            syncState: ClipSyncState(rawValue: syncState) ?? .local
         )
     }
 }
 
-private struct DBClipRepresentation: Codable, FetchableRecord, PersistableRecord {
+struct DBClipRepresentation: Codable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "clipRepresentation"
 
     var id: Int64?

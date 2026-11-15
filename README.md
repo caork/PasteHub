@@ -65,9 +65,19 @@ Open settings from the menu bar icon to adjust:
 - **Skip verification codes / OTPs:** rule-based filtering, enabled by default.
 - **Check for updates:** find new releases on GitHub and choose when to install them.
 
-## Your history stays on your Mac
+## Optional sync between your Mac and iPhone
 
-PasteHub stores clipboard history locally. **No account, no cloud sync, and no upload of your clipboard history.** Checking for updates connects to GitHub.
+PasteHub can share clipboard history between Macs and an iPhone through a sync server you run yourself (see [`Server/`](Server/README.md)). There is no account; sync is off until you enter a server address and sync key.
+
+1. On the server, create a sync key with `pastehub-sync keygen`. It is shown once.
+2. On each Mac, open **Settings → 远端同步 (Remote sync)**, enter the server address and the same sync key, and click **保存并连接 (Save and connect)**.
+3. On the iPhone, enter the same address and key in the PasteHub app's settings. Add the PasteHub keyboard to insert synced items into any app, or use the **Send clipboard to PasteHub** shortcut to send what you copied.
+
+Content is encrypted on the device before upload; the server only stores ciphertext. Items larger than 5 MB stay on the device where they were copied. Clearing history only affects the current device.
+
+## Your history stays yours
+
+Without a sync server configured, PasteHub stores clipboard history only on your Mac: **no account and no upload of your clipboard history.** With sync configured, history is end-to-end encrypted and sent only to the server you entered. Checking for updates connects to GitHub.
 
 It excludes apps such as 1Password, Bitwarden, KeePassXC, LastPass, Passwords, and Authy by default. Verification-code filtering uses heuristics and cannot catch every sensitive item. Delete individual records when needed, or clear all history in settings.
 
@@ -113,5 +123,15 @@ The build script creates `dist/PasteHub.app` and installs it into `/Applications
 ```bash
 SKIP_INSTALL=1 zsh Scripts/build-app.sh release
 ```
+
+To build the sync server and the iPhone app:
+
+```bash
+make server-test          # Go tests for the sync relay
+make sync-e2e             # Swift clients against a throwaway local relay
+make ios-project          # generate iOS/PasteHub-iOS.xcodeproj with XcodeGen
+```
+
+Set `PASTEHUB_TEAM_ID` before `make ios-project` to sign the iPhone app for a device.
 
 Without a suitable developer signing identity, local builds use ad-hoc signing. You may need to refresh the Accessibility permission after rebuilding.

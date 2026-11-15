@@ -181,6 +181,20 @@ private struct ClipRowView: View {
 
             Spacer(minLength: 6)
 
+            if let origin = item.originDeviceName {
+                Label(origin, systemImage: "laptopcomputer.and.iphone")
+                    .labelStyle(.titleAndIcon)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .help("来自 \(origin)")
+            }
+            if item.syncState == .tooLarge {
+                Image(systemName: "icloud.slash")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .help("超过 5 MB，未同步")
+            }
             if index < 9 {
                 Text("\(index + 1)")
                     .font(.system(size: 10, design: .monospaced))

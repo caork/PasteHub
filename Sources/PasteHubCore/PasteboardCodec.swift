@@ -1,3 +1,4 @@
+#if canImport(AppKit)
 import AppKit
 import Foundation
 
@@ -142,3 +143,4 @@ public enum PasteboardCodec {
         return pngData(from: thumb)
     }
 }
+#endif

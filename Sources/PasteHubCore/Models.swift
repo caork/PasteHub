@@ -10,6 +10,16 @@ public enum ClipKind: String, Codable, Sendable, CaseIterable {
     case unknown
 }
 
+/// Where an item stands relative to the remote sync server.
+public enum ClipSyncState: String, Codable, Sendable {
+    /// Sync is off, or the item has not been sent yet.
+    case local
+    /// The latest version reached the server, or the item came from another device.
+    case synced
+    /// The item is larger than the sync limit and stays on this device only.
+    case tooLarge
+}
+
 public struct ClipItem: Codable, Sendable, Identifiable, Equatable, Hashable {
     public var id: UUID
     public var createdAt: Date
@@ -21,6 +31,9 @@ public struct ClipItem: Codable, Sendable, Identifiable, Equatable, Hashable {
     public var sourceBundleID: String?
     public var sourceAppName: String?
     public var byteSize: Int
+    /// Name of the device the item was copied on, when it arrived through sync.
+    public var originDeviceName: String?
+    public var syncState: ClipSyncState
 
     public init(
         id: UUID = UUID(),
@@ -32,7 +45,9 @@ public struct ClipItem: Codable, Sendable, Identifiable, Equatable, Hashable {
         contentHash: String,
         sourceBundleID: String? = nil,
         sourceAppName: String? = nil,
-        byteSize: Int
+        byteSize: Int,
+        originDeviceName: String? = nil,
+        syncState: ClipSyncState = .local
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -44,6 +59,8 @@ public struct ClipItem: Codable, Sendable, Identifiable, Equatable, Hashable {
         self.sourceBundleID = sourceBundleID
         self.sourceAppName = sourceAppName
         self.byteSize = byteSize
+        self.originDeviceName = originDeviceName
+        self.syncState = syncState
     }
 }
 

@@ -1,7 +1,7 @@
 CONFIG ?= debug
 export DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer
 
-.PHONY: test build run clean release
+.PHONY: test build run clean release server-test sync-e2e ios-project
 
 test:
 	swift test
@@ -18,3 +18,12 @@ clean:
 
 release:
 	zsh Scripts/release.sh
+
+server-test:
+	cd Server && go test -race ./...
+
+sync-e2e:
+	zsh Scripts/sync-e2e.sh
+
+ios-project:
+	cd iOS && xcodegen

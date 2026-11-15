@@ -16,6 +16,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             generalSection
+            SyncSettingsSection()
             updateSection
             permissionSection
             privacySection
@@ -142,7 +143,7 @@ struct SettingsView: View {
     private var privacySection: some View {
         Section("隐私") {
             Toggle("不保存验证码 / OTP", isOn: $skipOneTimeCodes)
-            Text("默认排除：\(PrivacyFilter.blockedAppNames.joined(separator: "、"))。数据只存在本机，不做同步。")
+            Text("默认排除：\(PrivacyFilter.blockedAppNames.joined(separator: "、"))。未配置远端同步服务器时，数据只存在本机。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             Button("清空全部历史", role: .destructive) {

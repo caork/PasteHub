@@ -1,0 +1,25 @@
+[Unit]
+Description=PasteHub end-to-end encrypted sync relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pastehub-sync
+Group=pastehub-sync
+ExecStart=/usr/local/bin/pastehub-sync serve -data /var/lib/pastehub-sync -addr 127.0.0.1:9021
+Restart=on-failure
+RestartSec=3
+StateDirectory=pastehub-sync
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target
