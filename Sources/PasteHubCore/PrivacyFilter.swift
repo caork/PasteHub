@@ -49,10 +49,16 @@ public enum PrivacyFilter {
         let trimmed = context.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         if context.text.utf8.count > PasteHubDefaults.maxTextBytes { return false }
+        // Never keep (and therefore never sync) a PasteHub sync key copied between devices.
+        if looksLikeSyncKey(trimmed) { return false }
         if context.skipOneTimeCodes, looksLikeOneTimeCode(trimmed) {
             return false
         }
         return true
+    }
+
+    public static func looksLikeSyncKey(_ text: String) -> Bool {
+        text.wholeMatch(of: /phs1_[A-Za-z0-9_-]{43}/) != nil
     }
 
     public static func looksLikeOneTimeCode(_ text: String) -> Bool {

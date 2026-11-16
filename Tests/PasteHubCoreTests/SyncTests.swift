@@ -28,6 +28,13 @@ struct SyncKeysTests {
         #expect(a.itemKey(forContentHash: hash) != hash)
     }
 
+    @Test func privacyFilterSkipsSyncKeys() {
+        let key = SyncKeys.format(master: Data(repeating: 5, count: 32))
+        #expect(PrivacyFilter.looksLikeSyncKey(key))
+        #expect(!PrivacyFilter.shouldCapture(.init(text: " \(key)\n", sourceBundleID: nil, skipOneTimeCodes: false)))
+        #expect(PrivacyFilter.shouldCapture(.init(text: "phs1_ is the prefix", sourceBundleID: nil, skipOneTimeCodes: false)))
+    }
+
     @Test func normalizesServerAddresses() {
         #expect(SyncConfiguration.normalizeServerURL("paste.example.com/")?.absoluteString == "https://paste.example.com")
         #expect(SyncConfiguration.normalizeServerURL("http://127.0.0.1:9021")?.absoluteString == "http://127.0.0.1:9021")
